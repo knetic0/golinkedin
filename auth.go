@@ -1,6 +1,5 @@
 package golinkedin
 
-import "C"
 import (
 	"crypto/rand"
 	"encoding/json"
@@ -97,6 +96,11 @@ func Authorize(auth_url string) string {
 	return response_url
 }
 
+/*
+	Call this function after InitAuth.
+	This function will redirect you to AuthURL, and After then run Retrieve function as automatically.
+	Must create route for this function.
+ */
 func RedirectURL(c *fiber.Ctx) error {
 	sess, err := StateToken.Get(c)
 	if err != nil {
@@ -113,6 +117,10 @@ func RedirectURL(c *fiber.Ctx) error {
 	return c.Redirect(Config.AuthURL, http.StatusFound)
 }
 
+/*
+	Create route for this function.
+	You define Callback url as this route on your Linkedin app panel.
+ */
 func RetrieveAccessToken(c *fiber.Ctx) error {
 	queryState := c.Query("state")
 
