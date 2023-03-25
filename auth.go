@@ -72,7 +72,7 @@ func InitAuth(credentials map[string]string) {
 	Config.ClientID = credentials["client_id"]
 	Config.RedirectURI = credentials["redirect_uri"]
 	Config.ClientSecret = credentials["client_secret"]
-	auth_url := "https://www.linkedin.com/auth/v2"
+	auth_url := "https://www.linkedin.com/oauth/v2"
 
 	response_url := Authorize(auth_url)
 
@@ -172,7 +172,7 @@ func RetrieveAccessToken(c *fiber.Ctx) error {
 	}
 
 	accessSession.Set("access_token", Config.AccessToken)
-	if err = sess.Save(); err != nil {
+	if err = accessSession.Save(); err != nil {
 		c.Status(400)
 		return c.JSON(fiber.Map{"error": "session save error on access_token."})
 	}

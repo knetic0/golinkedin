@@ -72,7 +72,6 @@ func SharePost(c *fiber.Ctx) error {
 		c.Status(400)
 		return c.JSON(fiber.Map{"error" : "session get error"})
 	}
-
 	token := sess.Get("access_token")
 	postUrl := fmt.Sprintf("https://api.linkedin.com/v2/ugcPosts?oauth2_access_token=%s", token)
 
