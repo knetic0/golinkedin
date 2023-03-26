@@ -53,7 +53,6 @@ You can import API to your project with that's code.
 <!-- USAGE EXAMPLES -->
 ## Usage
 
-Usage will coming...
 
 <!-- CONTRIBUTING -->
 
