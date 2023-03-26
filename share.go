@@ -44,9 +44,11 @@ type Visibility struct {
 
 type JobPosting struct {
 	IntegrationContext      string   `json:"integrationContext"`
-	CompanyAppUrl           string   `json:"companyAppUrl"`
+	CompanyApplyUrl         string   `json:"companyApplyUrl"`
 	Description             string   `json:"description"`
 	EmploymentStatus        string   `json:"employmentStatus"`
+	ExternalJobPostingId    string   `json:"externalJobPostingId"`
+	ListedAt                int      `json:"listedAt"`
 	JobPostingOperationType string   `json:"jobPostingOperationType"`
 	Title                   string   `json:"title"`
 	Location                string   `json:"location"`
@@ -144,14 +146,16 @@ func ShareJOBPosting(c *fiber.Ctx) error {
 	token := sess.Get("access_token")
 
 	authString := fmt.Sprintf("Bearer %s", token)
-	jobPostingURL := "https://api.linkedin.com/v2/simpleJobPostings"
+	jobPostingURL := fmt.Sprintf("https://api.linkedin.com/v2/simpleJobPostings")
 	client := http.Client{}
 
 	data := JobPosting{
-		IntegrationContext:      "urn:li:organization:209243913",
-		CompanyAppUrl:           "https://www.linkedin.com/company/granddadai/",
+		IntegrationContext:      "urn:li:organization:82985266",
+		CompanyApplyUrl:         "https://www.linkedin.com/company/granddadai/jobs/",
 		Description:             "We are looking for a passionate Software Engineer",
 		EmploymentStatus:        "PART_TIME",
+		ExternalJobPostingId:    "1234",
+		ListedAt:                14400002023,
 		JobPostingOperationType: "CREATE",
 		Title:                   "Software Engineer",
 		Location:                "Turkey",
@@ -171,10 +175,8 @@ func ShareJOBPosting(c *fiber.Ctx) error {
 	}
 
 	req.Header = http.Header{
-		"Content-Type":    {"application/json"},
 		"Authorization":   {authString},
-		"x-li-format":     {"json"},
-		"x-restli-method": {"batch_create"},
+		"X-Restli-Method": {"batch_create"},
 	}
 
 	resp, err := client.Do(req)
