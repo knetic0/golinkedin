@@ -42,6 +42,10 @@ type Visibility struct {
 
 // JOB POSTING STRUCTS
 
+type JobValue struct {
+	JobPosting []JobPosting `json:"elements"`
+}
+
 type JobPosting struct {
 	IntegrationContext      string   `json:"integrationContext"`
 	CompanyApplyUrl         string   `json:"companyApplyUrl"`
@@ -128,7 +132,7 @@ func SharePost(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": bodyData})
 }
 
-func jobPostToJson(post *JobPosting) ([]byte, error) {
+func jobPostToJson(post *JobValue) ([]byte, error) {
 	data, err := json.Marshal(post)
 	if err != nil {
 		return nil, err
@@ -149,17 +153,21 @@ func ShareJOBPosting(c *fiber.Ctx) error {
 	jobPostingURL := fmt.Sprintf("https://api.linkedin.com/v2/simpleJobPostings")
 	client := http.Client{}
 
-	data := JobPosting{
-		IntegrationContext:      "urn:li:organization:82985266",
-		CompanyApplyUrl:         "https://www.linkedin.com/company/granddadai/jobs/",
-		Description:             "We are looking for a passionate Software Engineer",
-		EmploymentStatus:        "PART_TIME",
-		ExternalJobPostingId:    "1234",
-		ListedAt:                14400002023,
-		JobPostingOperationType: "CREATE",
-		Title:                   "Software Engineer",
-		Location:                "Turkey",
-		WorkplaceTypes:          []string{"remote"},
+	data := JobValue{
+		JobPosting: []JobPosting{
+			{
+				IntegrationContext:      "urn:li:organization:82985266",
+				CompanyApplyUrl:         "https://www.linkedin.com/company/granddadai",
+				Description:             "We are looking for a passionate Software Engineer",
+				EmploymentStatus:        "PART_TIME",
+				ExternalJobPostingId:    "1234",
+				ListedAt:                14400002023,
+				JobPostingOperationType: "CREATE",
+				Title:                   "Software Engineer",
+				Location:                "Turkey",
+				WorkplaceTypes:          []string{"remote"},
+			},
+		},
 	}
 
 	post, err := jobPostToJson(&data)
@@ -175,8 +183,11 @@ func ShareJOBPosting(c *fiber.Ctx) error {
 	}
 
 	req.Header = http.Header{
-		"Authorization":   {authString},
-		"X-Restli-Method": {"batch_create"},
+		"Content-Type":              {"application/json"},
+		"Authorization":             {authString},
+		"x-li-format":               {"json"},
+		"x-restli-method":           {"batch_create"},
+		"x-restli-protocol-version": {"2.0.0"},
 	}
 
 	resp, err := client.Do(req)
