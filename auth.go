@@ -135,13 +135,23 @@ func RetrieveAccessToken(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"error": "authorization error, states are not same"})
 	}
 
+	client := http.Client{}
+
 	queryToken := c.Query("code")
 
-	resp, err := http.Get("https://www.linkedin.com/uas/oauth2/accessToken?grant_type=authorization_code&code=" + queryToken + "&redirect_uri=" +
-		Config.RedirectURI + "&client_id=" + Config.ClientID + "&client_secret=" + Config.ClientSecret)
+	accessTokenURL := "https://www.linkedin.com/uas/oauth2/accessToken?grant_type=authorization_code&code=" + queryToken + "&redirect_uri=" +
+		Config.RedirectURI + "&client_id=" + Config.ClientID + "&client_secret=" + Config.ClientSecret
+
+	req, err := http.NewRequest(http.MethodGet, accessTokenURL, nil)
 	if err != nil {
 		c.Status(400)
 		return c.JSON(fiber.Map{"error": "get access token error"})
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		c.Status(400)
+		return c.JSON(fiber.Map{"error": "client do error"})
 	}
 
 	data, err := ioutil.ReadAll(resp.Body)

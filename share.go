@@ -185,10 +185,9 @@ func ShareJOBPosting(c *fiber.Ctx) error {
 	req.Header = http.Header{
 		"Content-Type":              {"application/json"},
 		"Authorization":             {authString},
-		"x-li-format":               {"json"},
-		"x-restli-method":           {"batch_create"},
-		"x-restli-protocol-version": {"2.0.0"},
+		"X-Restli-Protocol-Version": {"2.0.0"},
 	}
+	req.Header.Add("X-Restli-Method", "batch_create")
 
 	resp, err := client.Do(req)
 	if err != nil {
