@@ -43,7 +43,7 @@ type API struct {
 }
 
 var (
-	Config API
+	Config     API
 	StateToken = session.New(session.Config{
 		KeyLookup: "cookie:state",
 	})
@@ -53,7 +53,7 @@ var (
 )
 
 /*
-	tokenGenerator() function creating TOKEN for state query.
+tokenGenerator() function creating TOKEN for state query.
 */
 func tokenGenerator() string {
 	b := make([]byte, 20)
@@ -62,12 +62,12 @@ func tokenGenerator() string {
 }
 
 /*
-	First, we call this function to define some necessary part.
-	Send credentials as type of map[string]string.
-	 	- ClientID `client_id`
-		- RedirectURI `redirect_uri`
-		- ClientSecret `client_secret`
- */
+First, we call this function to define some necessary part.
+Send credentials as type of map[string]string.
+  - ClientID `client_id`
+  - RedirectURI `redirect_uri`
+  - ClientSecret `client_secret`
+*/
 func InitAuth(credentials map[string]string) {
 	Config.ClientID = credentials["client_id"]
 	Config.RedirectURI = credentials["redirect_uri"]
@@ -80,7 +80,7 @@ func InitAuth(credentials map[string]string) {
 }
 
 /*
-	Create Response URL. This URL helping us about take our AccessToken.
+Create Response URL. This URL helping us about take our AccessToken.
 */
 func Authorize(auth_url string) string {
 	csrf_token := tokenGenerator()
@@ -90,17 +90,17 @@ func Authorize(auth_url string) string {
 	Config.State = csrf_token
 
 	response_url := fmt.Sprintf("%s/authorization?response_type=%s&client_id=%s&redirect_uri=%s&state=%s&scope=%s&client_secret=%s",
-			auth_url, Config.ResponseType, Config.ClientID, Config.RedirectURI, Config.State, Config.Scope, Config.ClientSecret,
-		)
+		auth_url, Config.ResponseType, Config.ClientID, Config.RedirectURI, Config.State, Config.Scope, Config.ClientSecret,
+	)
 
 	return response_url
 }
 
 /*
-	Call this function after InitAuth.
-	This function will redirect you to AuthURL, and After then run Retrieve function as automatically.
-	Must create route for this function.
- */
+Call this function after InitAuth.
+This function will redirect you to AuthURL, and After then run Retrieve function as automatically.
+Must create route for this function.
+*/
 func RedirectURL(c *fiber.Ctx) error {
 	sess, err := StateToken.Get(c)
 	if err != nil {
@@ -118,9 +118,9 @@ func RedirectURL(c *fiber.Ctx) error {
 }
 
 /*
-	Create route for this function.
-	You define Callback url as this route on your Linkedin app panel.
- */
+Create route for this function.
+You define Callback url as this route on your Linkedin app panel.
+*/
 func RetrieveAccessToken(c *fiber.Ctx) error {
 	queryState := c.Query("state")
 
@@ -135,13 +135,23 @@ func RetrieveAccessToken(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"error": "authorization error, states are not same"})
 	}
 
+	client := http.Client{}
+
 	queryToken := c.Query("code")
 
-	resp, err := http.Get("https://www.linkedin.com/uas/oauth2/accessToken?grant_type=authorization_code&code=" + queryToken + "&redirect_uri=" +
-		Config.RedirectURI + "&client_id=" + Config.ClientID + "&client_secret=" + Config.ClientSecret)
+	accessTokenURL := "https://www.linkedin.com/uas/oauth2/accessToken?grant_type=authorization_code&code=" + queryToken + "&redirect_uri=" +
+		Config.RedirectURI + "&client_id=" + Config.ClientID + "&client_secret=" + Config.ClientSecret
+
+	req, err := http.NewRequest(http.MethodGet, accessTokenURL, nil)
 	if err != nil {
 		c.Status(400)
 		return c.JSON(fiber.Map{"error": "get access token error"})
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		c.Status(400)
+		return c.JSON(fiber.Map{"error": "client do error"})
 	}
 
 	data, err := ioutil.ReadAll(resp.Body)
@@ -168,7 +178,7 @@ func RetrieveAccessToken(c *fiber.Ctx) error {
 	accessSession, err := AccessToken.Get(c)
 	if err != nil {
 		c.Status(400)
-		return c.JSON(fiber.Map{"error":"access token cookie error."})
+		return c.JSON(fiber.Map{"error": "access token cookie error."})
 	}
 
 	accessSession.Set("access_token", Config.AccessToken)
