@@ -156,8 +156,8 @@ func ShareJOBPosting(c *fiber.Ctx) error {
 	data := JobValue{
 		JobPosting: []JobPosting{
 			{
-				IntegrationContext:      "urn:li:organization:82985266",
-				CompanyApplyUrl:         "https://www.linkedin.com/company/granddadai",
+				IntegrationContext:      "urn:li:organization:<organization-id>",
+				CompanyApplyUrl:         "<company-url>",
 				Description:             "We are looking for a passionate Software Engineer",
 				EmploymentStatus:        "PART_TIME",
 				ExternalJobPostingId:    "1234",

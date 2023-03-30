@@ -39,9 +39,9 @@ func TestInitAuth(t *testing.T) {
 
 func TestRedirectURL(t *testing.T) {
 	var credentials = map[string]string{
-		"client_id":     "77ljob4304lxf4",
-		"redirect_uri":  "http://localhost:8000/callback",
-		"client_secret": "0liGSEzhek8hjEdi",
+		"client_id":     "<client-id>",
+		"redirect_uri":  "redirect_uri",
+		"client_secret": "<client-secret>",
 	}
 
 	InitAuth(credentials)
