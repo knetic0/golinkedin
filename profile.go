@@ -3,31 +3,17 @@ package golinkedin
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/gofiber/fiber/v2"
 	"io/ioutil"
 	"net/http"
-)
 
-type ProfileInformation struct {
-	// ProfileID represents the ID every linkedin profile has.
-	Id 		  string `json:"id"`
-
-	// User's FirstName
-	FirstName string `json:"localizedFirstName"`
-
-	// User's LastName
-	LastName  string `json:"localizedLastName"`
-}
-
-var (
-	Information ProfileInformation
+	"github.com/gofiber/fiber/v2"
 )
 
 /*
-	After than Callback, you take Profile information with this function.
-	Create route for this.
- */
-func Profile(c *fiber.Ctx) error {
+After than Callback, you take Profile information with this function.
+Create route for this.
+*/
+func (s *API) Profile(c *fiber.Ctx) error {
 	profileUrl := "https://api.linkedin.com/v2/me"
 
 	sess, err := AccessToken.Get(c)
@@ -44,7 +30,7 @@ func Profile(c *fiber.Ctx) error {
 	req, err := http.NewRequest("GET", profileUrl, nil)
 	if err != nil {
 		c.Status(400)
-		return c.JSON(fiber.Map{"error":"new request created unsuccess"})
+		return c.JSON(fiber.Map{"error": "new request created unsuccess"})
 	}
 
 	req.Header = http.Header{
@@ -61,15 +47,15 @@ func Profile(c *fiber.Ctx) error {
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		c.Status(400)
-		return c.JSON(fiber.Map{"error":"readall error on res.Body"})
+		return c.JSON(fiber.Map{"error": "readall error on res.Body"})
 	}
 
-	err = json.Unmarshal(body, &Information)
+	err = json.Unmarshal(body, &s.ProfileInformation)
 	if err != nil {
 		c.Status(400)
 		return c.JSON(fiber.Map{"error": "unmarshal error"})
 	}
 
 	c.Status(200)
-	return c.JSON(fiber.Map{"profile": Information})
+	return c.JSON(fiber.Map{"profile": s.ProfileInformation})
 }
