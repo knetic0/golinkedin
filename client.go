@@ -57,7 +57,7 @@ type Linkedin struct {
 }
 
 var (
-	AuthURL = "https://www.linkedin.com/oauth/v2"
+	AuthURL = "https://www.linkedin.com/oauth/v2/authorization?"
 )
 
 /*
@@ -87,7 +87,7 @@ func New(clientId, redirectUrl, clientSecret string, scopes []string) (*Linkedin
 		State:        tokenGenerator(),
 	}
 
-	api.AuthURL = fmt.Sprintf("%s/authorization?response_type=%s&client_id=%s&redirect_uri=%s&state=%s&scope=%s& 	   client_secret=%s", AuthURL, api.ResponseType, api.ClientID, api.RedirectURI, api.State, api.Scope, api.ClientSecret)
+	api.AuthURL = fmt.Sprintf("%sresponse_type=%s&client_id=%s&redirect_uri=%s&state=%s&scope=%s&client_secret=%s", AuthURL, api.ResponseType, api.ClientID, api.RedirectURI, api.State, api.Scope, api.ClientSecret)
 
 	return &api, nil
 }
