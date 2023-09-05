@@ -9,33 +9,38 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+type ProfileInformation struct {
+	// ProfileID represents the ID every linkedin profile has.
+	Id string `json:"id"`
+
+	// User's FirstName
+	FirstName string `json:"localizedFirstName"`
+
+	// User's LastName
+	LastName string `json:"localizedLastName"`
+}
+
 /*
 After than Callback, you take Profile information with this function.
 Create route for this.
 */
-func (s *API) Profile(c *fiber.Ctx) error {
-	profileUrl := "https://api.linkedin.com/v2/me"
+func (ln *Linkedin) Profile(c *fiber.Ctx) error {
+	profile_url := "https://api.linkedin.com/v2/me"
 
-	sess, err := AccessToken.Get(c)
-	if err != nil {
-		c.Status(400)
-		return c.JSON(fiber.Map{"error": "session get error"})
-	}
+	token := c.Cookies("linkedin_token")
 
-	token := sess.Get("access_token")
-	authHeader := fmt.Sprintf("Bearer %s", token)
+	authorization := fmt.Sprintf("Bearer %s", token)
 
 	client := http.Client{}
 
-	req, err := http.NewRequest("GET", profileUrl, nil)
+	req, err := http.NewRequest("GET", profile_url, nil)
 	if err != nil {
-		c.Status(400)
-		return c.JSON(fiber.Map{"error": "new request created unsuccess"})
+		return c.Status(400).JSON(fiber.Map{"error": "new request created unsuccess"})
 	}
 
 	req.Header = http.Header{
 		"Content-Type":  {"application/json"},
-		"Authorization": {authHeader},
+		"Authorization": {authorization},
 	}
 
 	res, err := client.Do(req)
@@ -50,12 +55,12 @@ func (s *API) Profile(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"error": "readall error on res.Body"})
 	}
 
-	err = json.Unmarshal(body, &s.ProfileInformation)
+	err = json.Unmarshal(body, &ln.ProfileInformation)
 	if err != nil {
 		c.Status(400)
 		return c.JSON(fiber.Map{"error": "unmarshal error"})
 	}
 
 	c.Status(200)
-	return c.JSON(fiber.Map{"profile": s.ProfileInformation})
+	return c.JSON(fiber.Map{"profile": ln.ProfileInformation})
 }
