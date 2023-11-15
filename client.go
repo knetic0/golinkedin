@@ -73,7 +73,10 @@ func New(clientId, redirectUrl, clientSecret string, scopes []string) (*Linkedin
 	}
 
 	for _, scp := range scopes {
-		if scp != "r_liteprofile" && scp != "r_emailaddress" && scp != "w_member_social" {
+		switch scp {
+		case "r_liteprofile", "r_emailaddress", "w_member_social":
+			continue
+		default:
 			return nil, fmt.Errorf("invalid scope")
 		}
 	}
