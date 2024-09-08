@@ -4,164 +4,140 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
-	"time"
-
-	"github.com/gofiber/fiber/v2"
 )
 
-type Authentication interface {
-	Authorize() string
-	RedirectToURL(*fiber.Ctx) error
-	RetrieveAccessToken(*fiber.Ctx) error
-	Profile(*fiber.Ctx) error
-	SharePost(*fiber.Ctx) error
-	ShareJOBPosting(*fiber.Ctx) error
+type Config struct {
+	// The response type, set to 'code' by default, which is the standard for authorization flows.
+	ResponseType string
+
+	// Your LinkedIn app's ClientID, which is obtained after creating a LinkedIn app.
+	ClientID string
+
+	// Your LinkedIn app's ClientSecret, obtained after creating the LinkedIn app.
+	ClientSecret string
+
+	// The callback URL you define when setting up your LinkedIn app. It will be used for redirecting users.
+	RedirectURI string
+
+	// The requested permissions (scopes). Set to 'r_liteprofile', 'r_emailaddress', 'w_member_social', and 'w_share' by default.
+	Scopes []string
 }
 
 type Linkedin struct {
-	// Redirect to linkedin Auth screen with this url.
-	// Must be contain ClientID, RedirectURI, ClientSecret, Scopes and State.
-	AuthURL string `json:"authURL"`
-
-	// Set 'code' by default.
-	ResponseType string `json:"responseType"`
-
-	// Your linkedin app's ClientID.
-	// You can take your ClientID after create linkedin app.
-	ClientID string `json:"client_id"`
-
-	// Your linkedin app's ClientSecret.
-	// You can take your ClientSecret after create linkedin app.
-	ClientSecret string `json:"client_secret"`
-
-	// Your callback url.
-	// You can define this while you creating your linkedin app.
-	RedirectURI string `json:"redirect_uri"`
-
-	// Your State token, creating random.
-	State string `json:"state"`
-
-	// Our permissions.
-	// Set 'r_liteprofile,r_emailaddress,w_member_social,w_share' by defualt.
-	Scope string `json:"scope"`
-
-	// You can take AccessToken when you redirect to callback url.
-	// This defined in your redirect URL as 'code'.
-	AccessToken string `json:"access_token"`
-
-	// ProfileInformation inherit on API Struct.
-	ProfileInformation ProfileInformation `json:"profile_information"`
+	// The configuration for the LinkedIn OAuth client, using the `Config` struct.
+	config Config
 }
 
 var (
-	AuthURL = "https://www.linkedin.com/oauth/v2/authorization?"
+	// Base URL for LinkedIn's OAuth authentication endpoint.
+	AuthenticationBaseURL = "https://www.linkedin.com/oauth/v2/authorization?"
+
+	// Base URL for requesting the access token after obtaining the authorization code.
+	AccessTokenBaseURL = "https://www.linkedin.com/uas/oauth2/accessToken?grant_type=authorization_code"
 )
 
 /*
-New function create a new linkedin API struct.
-Take arguments, Client ID, Redirect URL and
-Client Secret. Thats arguments can find on
-linkedin portal. Also, send Scopes argument for
-give permission your api.
+New creates a new LinkedIn API client with the given configuration.
+This requires the Client ID, Redirect URL, and Client Secret, which can be found
+on the LinkedIn Developer portal. Optionally, permissions (scopes) can be provided.
+If no config is provided, an error is returned.
 */
-func New(clientId, redirectUrl, clientSecret string, scopes []string) (*Linkedin, error) {
-	if len(scopes) == 0 {
-		return nil, fmt.Errorf("scopes must take valid value")
+func New(config ...Config) (*Linkedin, error) {
+	linkedin := &Linkedin{
+		config: Config{},
 	}
 
-	for _, scp := range scopes {
-		switch scp {
-		case "r_liteprofile", "r_emailaddress", "w_member_social":
-			continue
-		default:
-			return nil, fmt.Errorf("invalid scope")
-		}
+	if len(config) == 0 {
+		return nil, fmt.Errorf("%s", "please provide a config!")
 	}
 
-	api := Linkedin{
-		ClientID:     clientId,
-		ClientSecret: clientSecret,
-		RedirectURI:  redirectUrl,
-		ResponseType: "code",
-		Scope:        strings.Join(scopes, ","),
-		State:        tokenGenerator(),
-	}
+	linkedin.config = config[0]
 
-	api.AuthURL = fmt.Sprintf("%sresponse_type=%s&client_id=%s&redirect_uri=%s&state=%s&scope=%s&client_secret=%s", AuthURL, api.ResponseType, api.ClientID, api.RedirectURI, api.State, api.Scope, api.ClientSecret)
-
-	return &api, nil
+	return linkedin, nil
 }
 
 /*
-Redirect URL will be redirect you to AuthURL.
+setAuthURL builds the LinkedIn authorization URL for the client.
+It generates a random state for security and joins the required scopes.
+The resulting URL is used to redirect the user for authentication.
 */
-func (ln *Linkedin) RedirectToURL(c *fiber.Ctx) error {
-	return c.Redirect(ln.AuthURL, http.StatusFound)
+func (config *Config) setAuthURL() string {
+	if len(config.Scopes) == 0 {
+		config.Scopes = []string{"r_liteprofile", "r_emailaddress", "w_member_social", "w_share"}
+	}
+
+	state := stateGenerator()
+	scopes := strings.Join(config.Scopes, ",")
+
+	return AuthenticationBaseURL +
+		"response_type=" + config.ResponseType +
+		"&client_id=" + config.ClientID +
+		"&redirect_uri=" + config.RedirectURI +
+		"&state=" + state +
+		"&scope=" + scopes +
+		"&client_secret=" + config.ClientSecret
 }
 
 /*
-After redirecting to auth url, you must to callback here.
-When you set something on linkedin portal you must to be
-determine call back url, and this url point to RetrieveAccessToken's
-endpoint.
+setAccessTokenURL generates the access token request URL, which is used to exchange
+the authorization code for an access token. It includes the redirect URI, client ID, and client secret.
 */
-func (ln *Linkedin) RetrieveAccessToken(c *fiber.Ctx) error {
+func (cfg *Config) setAccessTokenURL(code string) string {
+	return AccessTokenBaseURL + code +
+		"&redirect_uri=" + cfg.RedirectURI +
+		"&client_id=" + cfg.ClientID +
+		"&client_secret=" + cfg.ClientSecret
+}
+
+/*
+GetAuthenticationUrl returns the LinkedIn authorization URL, allowing the client to
+authenticate users and receive an authorization code.
+*/
+func (ln *Linkedin) GetAuthenticationUrl() string {
+	return ln.config.setAuthURL()
+}
+
+/*
+RetrieveAccessToken exchanges the authorization code for an access token by making an
+HTTP request to LinkedIn's OAuth API. The access token is required for accessing LinkedIn's API.
+*/
+func (ln *Linkedin) RetrieveAccessToken(code string) (string, error) {
+	type response struct {
+		AccessToken string `json:"access_token"`
+	}
+
 	client := http.Client{}
 
-	queryToken := c.Query("code")
+	accessTokenURL := ln.config.setAccessTokenURL(code)
 
-	accessTokenURL := "https://www.linkedin.com/uas/oauth2/accessToken?grant_type=authorization_code&code=" + queryToken + "&redirect_uri=" + ln.RedirectURI + "&client_id=" + ln.ClientID + "&client_secret=" + ln.ClientSecret
-
-	req, err := http.NewRequest(http.MethodGet, accessTokenURL, nil)
-	if err != nil {
-		c.Status(400)
-		return c.JSON(fiber.Map{"error": "get access token error"})
-	}
+	req, _ := http.NewRequest(http.MethodGet, accessTokenURL, nil)
 
 	resp, err := client.Do(req)
 	if err != nil {
-		c.Status(400)
-		return c.JSON(fiber.Map{"error": "client do error"})
+		return "", fmt.Errorf("http request error: %s", err.Error())
 	}
 
-	data, err := ioutil.ReadAll(resp.Body)
+	defer resp.Body.Close()
+
+	data, err := io.ReadAll(resp.Body)
 	if err != nil {
-		c.Status(400)
-		return c.JSON(fiber.Map{"error": "body read error"})
-	}
-	resp.Body.Close()
-
-	var responseBody map[string]interface{}
-	err = json.Unmarshal(data, &responseBody)
-	if err != nil {
-		c.Status(400)
-		return c.JSON(fiber.Map{"error": "unmarshal error"})
+		return "", fmt.Errorf("read body error: %s", err.Error())
 	}
 
-	if _, err := responseBody["error"]; err {
-		c.Status(400)
-		return c.JSON(fiber.Map{"error": responseBody["error"].(string)})
-	}
+	var r response
+	_ = json.Unmarshal(data, &r)
 
-	ln.AccessToken = responseBody["access_token"].(string)
-
-	c.Cookie(&fiber.Cookie{
-		Name:     "linkedin_token",
-		Value:    ln.AccessToken,
-		HTTPOnly: true,
-		Expires:  time.Now().Add(time.Hour * 24),
-	})
-
-	return c.Status(200).JSON(fiber.Map{"access_token": ln.AccessToken})
+	return r.AccessToken, nil
 }
 
 /*
-tokenGenerator() function creating TOKEN for state query.
+stateGenerator generates a random state string for OAuth2 requests.
+This state is used to prevent CSRF attacks during the authentication process.
 */
-func tokenGenerator() string {
+func stateGenerator() string {
 	b := make([]byte, 20)
 	rand.Read(b)
 	return fmt.Sprintf("%x", b)

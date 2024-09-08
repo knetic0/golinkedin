@@ -4,10 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
-
-	"github.com/gofiber/fiber/v2"
 )
 
 type Post struct {
@@ -60,31 +58,23 @@ type JobPosting struct {
 	WorkplaceTypes          []string `json:"workplaceTypes"`
 }
 
+var (
+	PostURL = "https://api.linkedin.com/v2/ugcPosts?oauth2_access_token="
+)
+
 /*
 Have ProfileID, Share any post what you want.
-Must post this route to json.
-
-	{
-		"text": <text>
-	}
 */
-func (ln *Linkedin) SharePost(c *fiber.Ctx) error {
-	var dataBody map[string]string
-	if err := c.BodyParser(&dataBody); err != nil {
-		c.Status(400)
-		return c.JSON(fiber.Map{"error": "body parser error"})
-	}
-
-	token := c.Cookies("linkedin_token")
-	postUrl := fmt.Sprintf("https://api.linkedin.com/v2/ugcPosts?oauth2_access_token=%s", token)
+func (ln *Linkedin) SharePost(token, id, text string) error {
+	postUrl := fmt.Sprintf("%s%s", PostURL, token)
 
 	data := Post{
-		Author:         "urn:li:person:" + ln.ProfileInformation.Id,
+		Author:         "urn:li:person:" + id,
 		LifeCycleState: "PUBLISHED",
 		SpecificContent: SpecificContent{
 			ShareContent: ShareContent{
 				ShareCommentary: ShareCommentary{
-					Text: dataBody["text"],
+					Text: text,
 				},
 				ShareMediaCategory: "NONE",
 			},
@@ -96,101 +86,26 @@ func (ln *Linkedin) SharePost(c *fiber.Ctx) error {
 
 	post, err := postToJson(&data)
 	if err != nil {
-		c.Status(400)
-		return c.JSON(fiber.Map{"error": "post to json error"})
+		return fmt.Errorf("error occurred = %s", err.Error())
 	}
 
 	resp, err := http.Post(postUrl, "application/json", bytes.NewReader(post))
 	if err != nil {
-		c.Status(400)
-		return c.JSON(fiber.Map{"error": "share post error"})
+		return fmt.Errorf("error occurred = %s", err.Error())
 	}
 
-	bodyData, err := ioutil.ReadAll(resp.Body)
+	_, err = io.ReadAll(resp.Body)
 	if err != nil {
-		c.Status(400)
-		return c.JSON(fiber.Map{"error": "read all error"})
+		return fmt.Errorf("error occurred = %s", err.Error())
 	}
 
-	c.Status(200)
-	return c.JSON(fiber.Map{"message": bodyData})
-}
-
-func (ln *Linkedin) ShareJOBPosting(c *fiber.Ctx) error {
-	token := c.Cookies("linkedin_token")
-
-	authString := fmt.Sprintf("Bearer %s", token)
-	jobPostingURL := "https://api.linkedin.com/v2/simpleJobPostings"
-	client := http.Client{}
-
-	data := JobValue{
-		JobPosting: []JobPosting{
-			{
-				IntegrationContext:      "urn:li:organization:<organization-id>",
-				CompanyApplyUrl:         "<company-url>",
-				Description:             "We are looking for a passionate Software Engineer",
-				EmploymentStatus:        "PART_TIME",
-				ExternalJobPostingId:    "1234",
-				ListedAt:                14400002023,
-				JobPostingOperationType: "CREATE",
-				Title:                   "Software Engineer",
-				Location:                "Turkey",
-				WorkplaceTypes:          []string{"remote"},
-			},
-		},
-	}
-
-	post, err := jobPostToJson(&data)
-	if err != nil {
-		c.Status(400)
-		return c.JSON(fiber.Map{"error": "post to json is not successfully"})
-	}
-
-	req, err := http.NewRequest(http.MethodPost, jobPostingURL, bytes.NewReader(post))
-	if err != nil {
-		c.Status(400)
-		return c.JSON(fiber.Map{"error": "posting error"})
-	}
-
-	req.Header = http.Header{
-		"Content-Type":              {"application/json"},
-		"Authorization":             {authString},
-		"X-Restli-Protocol-Version": {"2.0.0"},
-		"X-Restli-Method":           {"batch_create"},
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		c.Status(400)
-		return c.JSON(fiber.Map{"error": "client do error"})
-	}
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		c.Status(400)
-		return c.JSON(fiber.Map{"error": "read all error"})
-	}
-
-	c.Status(200)
-	return c.JSON(fiber.Map{"message": string(body)})
+	return nil
 }
 
 /*
 Convert Post type to []byte type.
 */
 func postToJson(post *Post) ([]byte, error) {
-	data, err := json.Marshal(post)
-	if err != nil {
-		return nil, err
-	}
-
-	return data, nil
-}
-
-/*
-Convert Post type to []byte type.
-*/
-func jobPostToJson(post *JobValue) ([]byte, error) {
 	data, err := json.Marshal(post)
 	if err != nil {
 		return nil, err
